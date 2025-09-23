@@ -1,12 +1,7 @@
-// .devcontainer/devcontainer.json
 {
   "name": "Python Flight Simulator",
   "image": "mcr.microsoft.com/devcontainers/python:3.11",
-  "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {
-      "version": "latest"
-    }
-  },
+  "features": {},
   "customizations": {
     "vscode": {
       "extensions": [
@@ -15,11 +10,7 @@
     }
   },
   "postCreateCommand": "pip install -r requirements.txt",
-  "forwardPorts": [8000],
-  "portsAttributes": {
-    "8000": {
-      "label": "Application"
-    }
-  }
+  "forwardPorts": []
 }
+
 
