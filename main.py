@@ -1,11 +1,12 @@
 # main.py
 import pygame
 import numpy as np
+import asyncio
 from config import *
 from pyfly_wrapper import PyFlyWrapper
 from renderer import Renderer
 
-def main():
+async def main():
     # Initialize components
     physics_engine = PyFlyWrapper()
     renderer = Renderer()
@@ -60,15 +61,17 @@ def main():
             controls["rudder"] *= 0.9
 
         # --- Physics Update ---
-        dt = clock.tick(FPS) / 1000.0  # Time step in seconds
+        dt = clock.tick(60) / 1000.0  # Time step in seconds
         physics_engine.update(dt, controls)
         
         # --- Rendering ---
         aircraft_pos = physics_engine.get_position()
         aircraft_quat = physics_engine.get_orientation()
         renderer.render(aircraft_pos, aircraft_quat)
+        
+        await asyncio.sleep(0)
 
     pygame.quit()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
