@@ -1,100 +1,53 @@
-# renderer.py
+# main.py
 import pygame
-from pygame.locals import *
-from OpenGL.GL import *
-from OpenGL.GLU import *
 import numpy as np
+import asyncio
 from config import *
+from renderer import Renderer
+from traffic_manager import TrafficManager
 
-class Renderer:
-    def __init__(self, model_path="simple_plane.obj"):
-        pygame.init()
-        pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), DOUBLEBUF | OPENGL)
-        self.setup_scene()
-        self.model_vertices = self.load_obj(model_path)
+async def main():
+    traffic_manager = TrafficManager()
+    renderer = Renderer()
+    
+    # Add a sample AI plane
+    traffic_manager.add_ai_aircraft(
+        "ai_plane_1", 
+        "assets/aircraft/aircraft_x8.json", 
+        "assets/models/cessna.obj"
+    )
 
-    def setup_scene(self):
-        """Configures the OpenGL viewport and projection."""
-        glEnable(GL_DEPTH_TEST)
-        glEnable(GL_CULL_FACE)
-        glEnable(GL_LIGHTING)
-        glEnable(GL_LIGHT0)
-        glEnable(GL_COLOR_MATERIAL)
-        glLightfv(GL_LIGHT0, GL_POSITION, [1.0, 1.0, 1.0, 0.0])
-        glLightfv(GL_LIGHT0, GL_AMBIENT, [0.5, 0.5, 0.5, 1.0])
+    clock = pygame.time.Clock()
+    controls = { "throttle": 0.0, "aileron": 0.0, "elevator": 0.0, "rudder": 0.0 }
+
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            
+        keys = pygame.key.get_pressed()
         
-        glMatrixMode(GL_PROJECTION)
-        glLoadIdentity()
-        gluPerspective(FOV, (SCREEN_WIDTH / SCREEN_HEIGHT), NEAR_CLIP, FAR_CLIP)
-        glMatrixMode(GL_MODELVIEW)
-        glLoadIdentity()
+        # Update player controls
+        if keys[pygame.K_UP]: controls["throttle"] = min(1.0, controls["throttle"] + THROTTLE_SENSITIVITY)
+        if keys[pygame.K_DOWN]: controls["throttle"] = max(0.0, controls["throttle"] - THROTTLE_SENSITIVITY)
+        if keys[pygame.K_LEFT]: controls["aileron"] = max(-1.0, controls["aileron"] - AILERON_SENSITIVITY)
+        elif keys[pygame.K_RIGHT]: controls["aileron"] = min(1.0, controls["aileron"] + AILERON_SENSITIVITY)
+        else: controls["aileron"] *= 0.9
+        if keys[pygame.K_w]: controls["elevator"] = min(1.0, controls["elevator"] + ELEVATOR_SENSITIVITY)
+        elif keys[pygame.K_s]: controls["elevator"] = max(-1.0, controls["elevator"] - ELEVATOR_SENSITIVITY)
+        else: controls["elevator"] *= 0.9
+        if keys[pygame.K_a]: controls["rudder"] = max(-1.0, controls["rudder"] - RUDDER_SENSITIVITY)
+        elif keys[pygame.K_d]: controls["rudder"] = min(1.0, controls["rudder"] + RUDDER_SENSITIVITY)
+        else: controls["rudder"] *= 0.9
 
-    def load_obj(self, filename):
-        """Loads a wavefront .obj file and returns a list of vertices."""
-        vertices = []
-        try:
-            for line in open(filename, "r"):
-                if line.startswith('v '):
-                    vertices.append(list(map(float, line.strip().split()[1:])))
-            print(f"Loaded {len(vertices)} vertices from {filename}")
-        except FileNotFoundError:
-            print(f"Warning: {filename} not found. Using default triangle.")
-            return np.array([
-                [1.0, 0.0, 0.0],  # Nose
-                [-1.0, 0.5, 0.0], # Left wing
-                [-1.0, -0.5, 0.0] # Right wing
-            ], dtype=np.float32).tolist()
-        return vertices
+        dt = clock.tick(60) / 1000.0
+        traffic_manager.update_all_aircraft(dt, controls)
+        renderer.render(traffic_manager.aircraft)
 
-    def draw_aircraft(self, position, quaternion):
-        """Draws the aircraft model at the specified position and orientation."""
-        glPushMatrix()
-        
-        glTranslatef(position[0], position[1], position[2])
-        
-        q = quaternion
-        rot_matrix = [
-            1 - 2*q[2]**2 - 2*q[3]**2, 2*q[1]*q[2] - 2*q[0]*q[3], 2*q[1]*q[3] + 2*q[0]*q[2], 0.0,
-            2*q[1]*q[2] + 2*q[0]*q[3], 1 - 2*q[1]**2 - 2*q[3]**2, 2*q[2]*q[3] - 2*q[0]*q[1], 0.0,
-            2*q[1]*q[3] - 2*q[0]*q[2], 2*q[2]*q[3] + 2*q[0]*q[1], 1 - 2*q[1]**2 - 2*q[2]**2, 0.0,
-            0.0, 0.0, 0.0, 1.0
-        ]
-        glMultMatrixf(rot_matrix)
+        await asyncio.sleep(0)
 
-        glColor3f(1.0, 1.0, 1.0)
-        glBegin(GL_TRIANGLES)
-        for vertex in self.model_vertices:
-            glVertex3fv(vertex)
-        glEnd()
+    pygame.quit()
 
-        glPopMatrix()
-
-    def draw_ground(self):
-        """Draws a simple ground plane."""
-        glColor3f(GROUND_COLOR[0], GROUND_COLOR[1], GROUND_COLOR[2])
-        glBegin(GL_QUADS)
-        glVertex3f(-100000.0, 0.0, -100000.0)
-        glVertex3f(100000.0, 0.0, -100000.0)
-        glVertex3f(100000.0, 0.0, 100000.0)
-        glVertex3f(-100000.0, 0.0, 100000.0)
-        glEnd()
-
-    def render(self, aircraft_position, aircraft_quaternion):
-        """Handles the main rendering loop, including camera setup."""
-        glClearColor(SKY_COLOR[0], SKY_COLOR[1], SKY_COLOR[2], SKY_COLOR[3])
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        glLoadIdentity()
-        
-        # Position the camera relative to the aircraft
-        camera_pos = aircraft_position - np.array([0, -10, CAMERA_DISTANCE])
-        camera_target = aircraft_position
-        gluLookAt(camera_pos[0], camera_pos[1], camera_pos[2],
-                  camera_target[0], camera_target[1], camera_target[2],
-                  0, 1, 0)
-        
-        self.draw_ground()
-        self.draw_aircraft(aircraft_position, aircraft_quaternion)
-
-        pygame.display.flip()
-
-
+if __name__ == "__main__":
+    asyncio.run(main())
