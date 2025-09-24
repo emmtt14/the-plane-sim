@@ -10,6 +10,7 @@
       ]
     }
   },
-  "postCreateCommand": "pip install -r requirements.txt",
+  "postCreateCommand": "pip install --no-cache-dir -r /workspaces/${containerWorkspaceFolder}/requirements.txt",
+
   "forwardPorts": []
 }
