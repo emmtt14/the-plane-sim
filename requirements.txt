@@ -1,0 +1,7 @@
+# requirements.txt
+pyfly
+PyOpenGL
+PyOpenGL_accelerate
+pygame
+numpy
+pygbag
