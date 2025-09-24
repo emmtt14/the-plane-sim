@@ -10,8 +10,6 @@
       ]
     }
   },
-  "postCreateCommand": "pip install -r /workspaces/YOUR_REPOSITORY_NAME/requirements.txt",
+  "postCreateCommand": "pip install -r requirements.txt",
   "forwardPorts": []
 }
-
-
